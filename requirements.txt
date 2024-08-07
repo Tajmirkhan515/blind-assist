@@ -6,7 +6,6 @@ certifi==2024.7.4
 charset-normalizer==3.3.2
 click==8.1.7
 colorama==0.4.6
-comtypes==1.4.6
 Django==5.0.7
 django-cors-headers==4.4.0
 django-rest-knox==5.0.1
@@ -31,10 +30,8 @@ pillow==10.4.0
 playsound==1.2.2
 pydantic==2.8.2
 pydantic_core==2.20.1
-pypiwin32==223
 pytesseract==0.3.10
 pyttsx3==2.90
-pywin32==306
 PyYAML==6.0.1
 regex==2024.7.24
 requests==2.32.3
