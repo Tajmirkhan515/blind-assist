@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    
+
     {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +10,11 @@
     <title>Assist Blind</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="{% static 'Styles/style.css' %}">
-    
+
 </head>
+
 <body>
-    <audio src="{% static 'Assets/unloadAudio.mp3' %}" id="myAudio" autoplay></audio>
+    <!-- <audio src="{% static 'Assets/unloadAudio.mp3' %}" id="myAudio" autoplay></audio> -->
 
     <main id="main" onclick="handleCapture()">
         <!-- Heading -->
@@ -99,16 +101,33 @@
     <script type="module" src="{% static 'JS/script.js' %}"></script>
 
     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Fetch text to be spoken
+            fetch('/get_speech_text/')
+                .then(response => response.json())
+                .then(data => {
+                    const text = data.text;
+                    const utterance = new SpeechSynthesisUtterance(text);
+
+                    // Optionally set voice and rate
+                    utterance.voice = speechSynthesis.getVoices().find(voice => voice.name === 'Google UK English Male');
+                    utterance.rate = 1;
+
+                    // Speak the text
+                    speechSynthesis.speak(utterance);
+                })
+                .catch(error => console.error('Error fetching speech text:', error));
+        });
         // ------------------ Camera ------------------
         const webcamElemnt = document.getElementById("webCam")
         const canvasElemnt = document.getElementById("canvas")
         const capturedImage = document.getElementById("capturedImage");
         // this is variable in which image will be stored
-        var img = "" 
+        var img = ""
         const constraints = {
             video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
+                width: {ideal: 640},
+                height: {ideal: 480},
                 facingMode: 'environment' //  'for rear'
                 // facingMode: 'user' //  'for front'
             },
@@ -134,54 +153,60 @@
 
         // ------------------ Picture Click ------------------
         // Function to get CSRF token from the cookie
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        // Picture Click Function
+        const handleCapture = async () => {
+            const context = canvasElemnt.getContext("2d");
+            canvasElemnt.width = webcamElemnt.videoWidth;
+            canvasElemnt.height = webcamElemnt.videoHeight;
+            context.drawImage(webcamElemnt, 0, 0, canvasElemnt.width, canvasElemnt.height);
+
+            const imageDataUrl = canvasElemnt.toDataURL("image/png");
+            img = imageDataUrl;
+            capturedImage.style.display = "block";
+            capturedImage.src = imageDataUrl;
+
+            // Send image to backend
+            try {
+                const response = await fetch('/upload_image/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({image: imageDataUrl})
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    const textToSpeak = data.message;
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    console.error('Error:', data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
             }
         }
-    }
-    return cookieValue;
-}
 
-const csrftoken = getCookie('csrftoken');
 
-// Picture Click Function
-const handleCapture = async () => {
-    const context = canvasElemnt.getContext("2d");
-    canvasElemnt.width = webcamElemnt.videoWidth;
-    canvasElemnt.height = webcamElemnt.videoHeight;
-    context.drawImage(webcamElemnt, 0, 0, canvasElemnt.width, canvasElemnt.height);
-
-    const imageDataUrl = canvasElemnt.toDataURL("image/png");
-    img = imageDataUrl;
-    capturedImage.style.display = "block";
-    capturedImage.src = imageDataUrl;
-
-    // Send image to backend
-    try {
-        const response = await fetch('/upload_image/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken // Add CSRF token here
-            },
-            body: JSON.stringify({ image: imageDataUrl })
-        });
-        const data = await response.json();
-        const voice = new SpeechSynthesisUtterance(data.message);
-        speechSynthesis.speak(voice);
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-        
     </script>
 </body>
+
 </html>

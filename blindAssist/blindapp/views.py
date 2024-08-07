@@ -16,50 +16,71 @@ from PIL import Image, UnidentifiedImageError
 import requests
 import torch
 # Load the processor and model
-processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+processor = BlipProcessor.from_pretrained(
+    "Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained(
+    "Salesforce/blip-image-captioning-base")
 import pytesseract
+
 pytesseract.pytesseract.tesseract_cmd = r'tesseract.exe'  # Assuming Tesseract is in the PATH
 import cv2
-from ai71 import AI71 
+from ai71 import AI71
 import pyttsx3
+import tempfile
+#import gtts
+#import playsound
+text_content = " "
 
-import gtts
-import playsound 
 
 def mainCode(image_path):
-    print("ftn call")
+
     #image_path="E:/Python/Django/blind-assist/blindAssist/uploaded_image.jpg"
     def play(text):
         engine = pyttsx3.init()
         engine.say(text)
         engine.runAndWait()
-            
+
         # playsound.playsound("voice.mp3")
 
     def generateText(text):
+        global text_content
         #I extracted this informtaion from image, in reply don't say image, say inside in the enviroment, please orgnize what is inside in the enviroment: "+text
         AI71_API_KEY = "ai71-api-ddbfacf9-004f-415d-8f22-edba215b5af2"
-        text_content=" "
+        text_gen = " "
         for chunk in AI71(AI71_API_KEY).chat.completions.create(
-            model="tiiuae/falcon-180b-chat",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant like google and siri."},
-                {"role": "user", "content": " I am visually impaired and have taken a picture of the environment. After extracting the information from the image, I would like to know what is described in the text. Please provide your prediction using the given text and refer to the content as being from the environment rather than mentioning the image "+text},
+                model="tiiuae/falcon-180b-chat",
+                messages=
+            [
+                {
+                    "role": "system",
+                    "content":
+                    "You are a helpful assistant like google and siri."
+                },
+                {
+                    "role":
+                    "user",
+                    "content":
+                    " I am visually impaired and have taken a picture of the environment. After extracting the information from the image, I would like to know what is described in the text. Please provide your prediction using the given text and refer to the content as being from the environment rather than mentioning the image "
+                    + text
+                },
             ],
-            stream=True,
+                stream=True,
         ):
-            
+
             if chunk.choices[0].delta.content:
-                print(chunk.choices[0].delta.content, sep="", end="", flush=True)
-                text_content += chunk.choices[0].delta.content
-        print(text_content)
-        play(text_content)
+                print(chunk.choices[0].delta.content,
+                      sep="",
+                      end="",
+                      flush=True)
+                text_gen += chunk.choices[0].delta.content
+        print(text_gen)
+
+        text_content = text_gen
 
     # Save the image locally
     #image_path = save_image(photo)
-    #image_path="files/photo1.jpg"   
-    text=""     
+    #image_path="files/photo1.jpg"
+    text = ""
     try:
         image = Image.open(image_path)
         print(image)
@@ -69,15 +90,14 @@ def mainCode(image_path):
         exit()
 
     # Process the image and generate a caption
-    inputs = processor(images=image, return_tensors="pt",padding=True)
-    out = model.generate(**inputs,
-                        max_new_tokens=50)
-    caption=" objects in image: "
+    inputs = processor(images=image, return_tensors="pt", padding=True)
+    out = model.generate(**inputs, max_new_tokens=50)
+    caption = " objects in image: "
     caption += processor.decode(out[0], skip_special_tokens=True)
-    text +=caption
+    text += caption
     print("Generated Caption:", caption)
 
-        # Read the image using OpenCV
+    # Read the image using OpenCV
     img = cv2.imread(image_path)
     print("done 1")
     # Convert to grayscale
@@ -91,26 +111,27 @@ def mainCode(image_path):
     no_noise_image = cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)
 
     # Find contours
-    contours, _ = cv2.findContours(no_noise_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(no_noise_image, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
 
     # Check if contours were found
     if contours:
         # Sort contours and get the largest one
         cnt_sorted = sorted(contours, key=lambda x: cv2.contourArea(x))
         cnt = cnt_sorted[-1]
-        
+
         # Get bounding box for the largest contour
         x, y, w, h = cv2.boundingRect(cnt)
-        cropped_image = no_noise_image[y:y+h, x:x+w]
-        
+        cropped_image = no_noise_image[y:y + h, x:x + w]
+
         # Convert the image to a PIL Image object for OCR
         pil_image = Image.fromarray(cropped_image)
-        
+
         # Perform OCR
         try:
-            ocr_result=", text inside in image: "
+            ocr_result = ", text inside in image: "
             ocr_result += pytesseract.image_to_string(pil_image)
-            text +=ocr_result
+            text += ocr_result
             # Check if OCR result is empty
             if ocr_result.strip():
                 print("Detected Text:")
@@ -122,15 +143,23 @@ def mainCode(image_path):
             print(" Error in OCR")
     else:
         print("No contours found in the image.")
-        text+=". there is no text inside in the image"
-    print(" complete text ",text)
+        text += ". there is no text inside in the image"
+    print(" complete text ", text)
     generateText(text)
+
 
 def home(request):
     # engine = pyttsx3.init()
     # engine.say("Hello How are you? This app is specially build for blind people. You may capture the image by clicking anywhere or by voice")
     # engine.runAndWait()
     return render(request, 'index.html')
+
+
+def get_speech_text(request):
+    # Text to be spoken by the browser
+    text = "Hello, this app is designed to assist visually impaired users. You can capture an image by clicking anywhere or using voice commands."
+    return JsonResponse({"text": text})
+
 
 @csrf_exempt
 def upload_image(request):
@@ -141,41 +170,77 @@ def upload_image(request):
             data = json.loads(request.body.decode('utf-8'))
             if 'image' not in data:
                 print("Image data missing")
-                return JsonResponse({"status": "error", "message": "Image data missing"}, status=400)
-            
-            image_data = data['image']
-            
-            # Check if image_data is not None and not empty
-            if not image_data:
-                print("Empty image data")
-                return JsonResponse({"status": "error", "message": "Empty image data"}, status=400)
+                return JsonResponse(
+                    {
+                        "status": "error",
+                        "message": "Image data missing"
+                    },
+                    status=400)
 
-            # Split the data URL to get base64 encoded data
-            format, imgstr = image_data.split(';base64,')
-            
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(imgstr)
-            image = Image.open(io.BytesIO(image_data))
-            
-            # Convert RGBA to RGB
-            if image.mode == 'RGBA':
-                image = image.convert('RGB')
-            engine = pyttsx3.init()
-            
-            engine.setProperty("rate", 150)
-            engine.say("Image Captured Successfully! Please wait for the response")
-            engine.runAndWait()
-            
-            image.save('uploaded_image.jpg')
-            mainCode('uploaded_image.jpg') 
-            return JsonResponse({"status": "success", "message": ""})
+            image_data = data['image']
+
+            try:
+                # Split the base64 data URL
+                if image_data.startswith('data:image/'):
+                    header, imgstr = image_data.split(';base64,')
+                else:
+                    imgstr = image_data
+
+                # Decode the base64 string to binary data
+                image_data = base64.b64decode(imgstr)
+
+                # Open the image
+                image = Image.open(io.BytesIO(image_data))
+                print("Image successfully opened:", image)
+                print("message", image)
+                image_path = " "
+                # Create a temporary file to save the image
+                with tempfile.NamedTemporaryFile(delete=False,
+                                                 suffix='.jpg',
+                                                 mode='wb') as temp_file:
+                    # Convert to RGB and save as JPEG
+                    image.convert('RGB').save(temp_file, 'JPEG')
+                    temp_file_path = temp_file.name
+                    imapge_path = temp_file_path
+                    print(f"Image saved temporarily as {temp_file_path}")
+
+                # Convert RGBA to RGB
+                #if image.mode == 'RGBA':
+            #    image = image.convert('RGB')
+                mainCode(imapge_path)
+
+            except Exception as e:
+                print("Error processing image:", e)
+
+            # Check if image_data is not None and not empty
+
+            return JsonResponse({"status": "success", "message": text_content})
         except json.JSONDecodeError:
             print("Invalid JSON format")
-            return JsonResponse({"status": "error", "message": "Invalid JSON format"}, status=400)
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": "Invalid JSON format"
+                },
+                status=400)
         except ValueError as e:
             print(f"Error processing image data: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"Error processing image data: {str(e)}"}, status=400)
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": f"Error processing image data: {str(e)}"
+                },
+                status=400)
         except Exception as e:
             print(f"An error occurred: {str(e)}")
-            return JsonResponse({"status": "error", "message": f"An error occurred: {str(e)}"}, status=500)
-    return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
+            return JsonResponse(
+                {
+                    "status": "error",
+                    "message": f"An error occurred: {str(e)}"
+                },
+                status=500)
+    return JsonResponse(
+        {
+            "status": "error",
+            "message": "Invalid request method"
+        }, status=405)
