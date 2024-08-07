@@ -12,8 +12,8 @@ Blind Assist is an application designed to help visually impaired individuals by
 ## How It Works
 
 1. **Image Capture**: Users can capture an image either by clicking a button or using a voice command.
-2. **Processing**: The captured image is processed using the Falcon AI model.
-3. **Voice Output**: The application converts the description of the environment into speech, providing real-time feedback to the user.
+2. **Processing**: The captured image is processed using a different machine learning model.
+3. **Voice Output**: With the help of Falcon generate a perfect, response The application converts the description of the environment into speech, providing real-time feedback to the user.
 
 ## Requirements
 
